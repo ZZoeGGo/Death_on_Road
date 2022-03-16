@@ -1,0 +1,130 @@
+---
+title: "D_on_Road"
+author: "zzz"
+date: "10/22/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Death on the road
+
+
+
+## Introduction
+
+This report analyzes the dataset from Casualties involved in reported road accidents (RAS30), shows all of UK road traffic accidents during 1979 to 2015. All fatal and slight injuries pedestrians involved in motor vehicle accidents are consist in the data, except the moderate injuries. We want to know whether women are appearing to be safer as pedestrians than men on average, especially in early adulthood or teenage period.
+
+
+## method
+
+We use dataset x from UK road accident data, which contains variables sex, age, light_conditions, weather_conditions, time, strata and y (2 level: True for fatal injury and False for slight injury) for the accidents. The variable y is treated as a response variable.
+First we use a glm model in binomial family to generate the effect of sex, age, weather condition and light condition to response variable y:
+y ~ sex + age + Light_Conditions + Weather_Conditions
+Then we come up with a conditional logistic regression model. For the response variable y, the fatal accidents are treated as cases and slight injuries as controls, effected by sex, age and strata(light condition):
+y ~ age + age:sex + strata(strata)
+The variables age, sex and strata are treated as fixed effect to the response variable y.  A cumulative hazard is plotting out, follows the general hazard function: 
+
+F(t) = $\int_{0}^{t}$f(t)du
+
+
+## result
+
+Firstly, the general effect of sex and age to the accident happening is given in the following table:
+
+```{r, echo=FALSE}
+pedestrainFile = Pmisc::downloadIfOld("http://pbrown.ca/teaching/appliedstats/data/pedestrians.rds")
+pedestrians = readRDS(pedestrainFile)
+pedestrians = pedestrians[!is.na(pedestrians$time),
+]
+pedestrians$y = pedestrians$Casualty_Severity == "Fatal"
+pedestrians$timeCat = format(pedestrians$time, "%Y_%b_%a_h%H")
+pedestrians$strata = paste(pedestrians$Light_Conditions,
+pedestrians$Weather_Conditions, pedestrians$timeCat)
+
+summary(glm(y ~ sex + age + Light_Conditions + Weather_Conditions,
+data = x, family = "binomial"))$coef[1:4, ]
+
+library("survival")
+theClogit = clogit(y ~ age + age:sex + strata(strata),
+data = x)
+
+theTable = table(pedestrians$strata, pedestrians$y)
+onlyOne = rownames(theTable)[which(theTable[, 1] ==
+0 | theTable[, 2] == 0)]
+x = pedestrians[!pedestrians$strata %in% onlyOne, ]
+theCoef = rbind(as.data.frame(summary(theClogit)$coef),
+`age 26 - 35` = c(0, 1, 0, NA, NA))
+theCoef$sex = c("Male", "Female")[1 + grepl("Female",
+rownames(theCoef))]
+theCoef$age = as.numeric(gsub("age|Over| - [[:digit:]].*|[:].*",
+"", rownames(theCoef)))
+theCoef = theCoef[order(theCoef$sex, theCoef$age),
+                  ]
+```
+
+Where we can see that females are significantly experience less traffic accidents than males, and as the age grows up, rate of accidents decrease significantly.
+
+However, the cumulative hazard plots show something different particularly in the teenager and young adult period of men and women: 
+
+```{r, echo=FALSE}
+matplot(theCoef[theCoef$sex == "Male", "age"], exp(as.matrix(theCoef[theCoef$sex ==
+"Male", c("coef", "se(coef)")]) %*% Pmisc::ciMat(0.99)),
+log = "y", type = "l", col = "black", lty = c(1,
+2, 2), xaxs = "i", yaxs = "i")
+matplot(theCoef[theCoef$sex == "Female", "age"], exp(as.matrix(theCoef[theCoef$sex ==
+"Female", c("coef", "se(coef)")]) %*% Pmisc::ciMat(0.99)),
+log = "y", type = "l", col = "black", lty = c(1,
+2, 2), xaxs = "i")
+```
+
+From the graph, before 20, men actually tend to be safer as pedestrians than women until age 23, where the injuries of men pedestrians overcome women pedestrians, as young adults. Which leads to the result that men are actually safer than women as pedestrains when they are teenagers, until young adult period and after, the injuries on men pedestrains are more than womens`. 
+
+
+
+## conclution
+
+This report analyzes the dataset from Casualties involved in reported road accidents (RAS30), shows all of UK road traffic accidents during 1979 to 2015. We use a survival model and plot out the cumulative hazards of men and women respectively, which leads to the result that as teenagers, or before 20, men actually tend to be safer as pedestrians than women. Whereas from age 17, the men injured pedestrians start to increase rapidly and overcome women pedestrians around 23, as young adults. This might be explained as that women are not born to be careful than men and actually more careless in the childhood, but gradually grow to be reluctant to put themselves in danger when men start showing engagement in front of risks.
+
+
+## Appendix
+
+```{r, eval=FALSE}
+summary(glm(y ~ sex + age + Light_Conditions + Weather_Conditions,
+data = x, family = "binomial"))$coef[1:4, ]
+library("survival")
+theClogit = clogit(y ~ age + age:sex + strata(strata),
+data = x)
+
+pedestrainFile = Pmisc::downloadIfOld("http://pbrown.ca/teaching/appliedstats/data/pedestrians.rds")
+pedestrians = readRDS(pedestrainFile)
+pedestrians = pedestrians[!is.na(pedestrians$time),
+]
+pedestrians$y = pedestrians$Casualty_Severity == "Fatal"
+pedestrians$timeCat = format(pedestrians$time, "%Y_%b_%a_h%H")
+pedestrians$strata = paste(pedestrians$Light_Conditions,
+pedestrians$Weather_Conditions, pedestrians$timeCat)
+
+theTable = table(pedestrians$strata, pedestrians$y)
+onlyOne = rownames(theTable)[which(theTable[, 1] ==
+0 | theTable[, 2] == 0)]
+x = pedestrians[!pedestrians$strata %in% onlyOne, ]
+theCoef = rbind(as.data.frame(summary(theClogit)$coef),
+`age 26 - 35` = c(0, 1, 0, NA, NA))
+theCoef$sex = c("Male", "Female")[1 + grepl("Female",
+rownames(theCoef))]
+theCoef$age = as.numeric(gsub("age|Over| - [[:digit:]].*|[:].*",
+"", rownames(theCoef)))
+theCoef = theCoef[order(theCoef$sex, theCoef$age),
+]
+matplot(theCoef[theCoef$sex == "Male", "age"], exp(as.matrix(theCoef[theCoef$sex ==
+"Male", c("coef", "se(coef)")]) %*% Pmisc::ciMat(0.99)),
+log = "y", type = "l", col = "black", lty = c(1,
+2, 2), xaxs = "i", yaxs = "i")
+matplot(theCoef[theCoef$sex == "Female", "age"], exp(as.matrix(theCoef[theCoef$sex ==
+"Female", c("coef", "se(coef)")]) %*% Pmisc::ciMat(0.99)),
+log = "y", type = "l", col = "black", lty = c(1,
+2, 2), xaxs = "i")
+```
